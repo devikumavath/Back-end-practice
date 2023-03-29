@@ -5,46 +5,69 @@ const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 dotenv.config({ path: './config.env' });
 const app = require('./app');
+const process = require('process');
 
+process.on('unhandledException', (err) => {
+  console.log(err.name, err.message);
+  console.log('unhandled exception shutting down.........');
+  console.log(err.name, err.message);
 
+    process.exit(1);
 
-const DB = process.env.DATABASE.replace('<PASSWORD>' , process.env.DATABASE_PASSWORD);
+});
+// const devData = require('./dev-data/data/import-dev-data');
+const { db } = require('./models/tourModel');
 
-mongoose.connect(DB , {
-  /*useNewUrlparser:true ,
+const DB = process.env.DATABASE.replace(
+  '<PASSWORD>',
+  process.env.DATABASE_PASSWORD
+);
+
+console.log('DB', DB);
+
+mongoose
+  .connect(DB, {
+    /*useNewUrlparser:true ,
   useCreateIndex : true ,
-useFindAndModify : false }*/})
-  .then(  () => {
-  //  console.log(con.connections);
-    console.log("DB connected successfully");
+useFindAndModify : false }*/
+  })
+  .then(() => {
+    //  console.log(con.connections);
+    console.log('DB connected successfully');
   });
 
+// const testTour = new Tour({
+//   name : "The Forest Hiker" ,
+//   rating : 4.7 ,
+//   price : 497
+// });
 
-
-
-
-
-  // const testTour = new Tour({
-  //   name : "The Forest Hiker" ,
-  //   rating : 4.7 ,
-  //   price : 497
-  // }); 
-
-  // testTour.save().then(doc => {
-  //   console.log(doc);
-  // }).catch(err => {
-  //   console.log(' ERROR 💥:' , err)
-  // })
-
+// testTour.save().then(doc => {
+//   console.log(doc);
+// }).catch(err => {
+//   console.log(' ERROR 💥:' , err)
+// })
 
 // console.log(process.env);
 // console.log(app.get('env'))
 
-
-
 //5)  starting server  🔍✅
 
+console.log('process.argv in server', process.argv);
+
 const port = process.env.PORT || 3000;
-app.listen(port, () => {
+const server = app.listen(port, () => {
   console.log(`app running on the port ${port}`);
 });
+
+process.on('unhandledRejection', (err) => {
+  console.log(err.name, err.message);
+  console.log('unhandled rejection shutting down.........');
+  console.log(err);
+  server.close(() => {
+    process.exit(1);
+  });
+});
+
+
+
