@@ -48,8 +48,6 @@ exports.signup = catchAsync(async (req, res, next) => {
   createSendToken(newUser, 201, res);
 });
 
-
-
 // user logon 💥
 
 exports.login = catchAsync(async (req, res, next) => {
@@ -72,6 +70,16 @@ exports.login = catchAsync(async (req, res, next) => {
   createSendToken(user, 200, res);
 });
 
+// logout from the natours app 💥
+exports.logout = (req, res) => {
+  res.cookie('jwt', 'loggedout', {
+    expires: new Date(Date.now() + 10 * 1000),
+    httpOnly: true,
+  });
+
+  res.status(200).json({ status: 'succes' });
+};
+
 //  protect tours 💥
 exports.protect = catchAsync(async (req, res, next) => {
   // 1)getting the token & check if it exists
@@ -82,12 +90,14 @@ exports.protect = catchAsync(async (req, res, next) => {
   ) {
     token = req.headers.authorization.split(' ')[1];
     // console.log(token);
+  } else if (req.cookies.jwt) {
+    token = req.cookies.jwt;
+  }
 
-    if (!token) {
-      return next(
-        new AppError('you are not logged in! please login to get access.', 401)
-      );
-    }
+  if (!token) {
+    return next(
+      new AppError('you are not logged in! please login to get access.', 401)
+    );
   }
 
   //2) verification token
@@ -118,6 +128,42 @@ exports.protect = catchAsync(async (req, res, next) => {
   req.user = currentUser;
   next();
 });
+
+//only for rendered pages so there is no error 💥
+exports.isLoggedIn = async (req, res, next) => {
+  if (req.cookies.jwt) {
+
+    try {
+    //1) verification token
+    const decoded = await promisify(jwt.verify)(
+      req.cookies.jwt,
+      process.env.JWT_SECRET
+    );
+
+    //2)check if user still exists
+
+    const currentUser = await User.findById(decoded.id);
+    if (!currentUser) {
+      return next();
+    }
+
+    //3)check if user change password after token issued
+    if (currentUser.changePasswordAfter(decoded.iat)) {
+      return next();
+    }
+
+    // there is a logged in user
+
+    res.locals.user = currentUser;
+    return next();
+  }  catch(err) {
+      return next();
+  }
+
+}
+
+  next();
+};
 
 //MIDDLE WARE FUNCTION TO RESTRICT THE PERSON WHO CAN DELETE THE TOURS  - admin , lead-guide  💥
 exports.restrictTo = (...roles) => {
@@ -156,17 +202,15 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
     await sendEmail({
       email: user.email,
       subject: 'Your password reset token (valid for 10 min)',
-      message
+      message,
     });
-
-   
 
     res.status(200).json({
       status: 'success',
-      message: 'Token sent to email!'
+      message: 'Token sent to email!',
     });
   } catch (err) {
-   // console.log(err);
+    // console.log(err);
     user.passwordResetToken = undefined;
     user.passwordResetExpires = undefined;
     await user.save({ validateBeforeSave: false });
@@ -177,8 +221,6 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
     );
   }
 });
-
-
 
 // reset password 💥
 exports.resetPassword = catchAsync(async (req, res, next) => {
@@ -231,7 +273,3 @@ exports.updatePassword = catchAsync(async (req, res, next) => {
   //4) log user in , send jwt
   createSendToken(user, 200, res);
 });
-
-
-
-
